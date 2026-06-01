@@ -1,0 +1,103 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Synapse — local prod-like compose stack (Requirements 8.5, 8.6)
+# ─────────────────────────────────────────────────────────────────────────────
+# Brings up the three runtime services as one unit:
+#   • server   — the compiled Synapse_Server image (built from ./server)
+#   • postgres — the Persistence_Store (durable boards + strokes)
+#   • redis    — the Coordination_Store (Socket.IO adapter + presence)
+#
+# Requirement 8.5: the server is configured with the connection URLs of both
+# datastores (DATABASE_URL / REDIS_URL) pointing at the compose service
+# hostnames `postgres` and `redis` on the shared default network.
+#
+# Requirement 8.6: the server starts only AFTER both datastores are reachable.
+# This is enforced with `depends_on: condition: service_healthy`, gated on each
+# datastore's own healthcheck (pg_isready / redis-cli ping). Compose will not
+# create the server container until both report healthy.
+#
+# Image tags are pinned to specific patch releases so the stack is reproducible.
+#
+# Configuration: copy values into a `.env` file next to this file (Compose reads
+# it automatically) or export them in your shell. Sensible local defaults are
+# baked in so `docker compose up` works out of the box; override every secret
+# and origin before using this anywhere real.
+#
+#   docker compose up --build
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: synapse
+
+services:
+  # ── Persistence_Store ───────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16.4-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-synapse}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # Reachability gate for the server's `depends_on` (Requirement 8.6):
+    # pg_isready reports healthy only once Postgres is accepting connections.
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-synapse}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # ── Coordination_Store ──────────────────────────────────────────────────────
+  redis:
+    image: redis:7.4-alpine
+    # Enable light persistence so presence/adapter state survives a restart.
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - redis-data:/data
+    # Reachability gate for the server's `depends_on` (Requirement 8.6):
+    # `redis-cli ping` returns PONG only once Redis is serving.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  # ── Synapse_Server ──────────────────────────────────────────────────────────
+  server:
+    build:
+      context: ./server
+    environment:
+      # NODE_ENV defaults to `development` because this local stack speaks plain
+      # HTTP/WS. In `production` the server accepts only encrypted transport
+      # (HTTPS/WSS), so a production deployment must terminate TLS at an ingress
+      # / load balancer in front of this service and set NODE_ENV=production.
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: "3001"
+      # CORS + Socket.IO handshake allowlist. Override for your client origin(s).
+      CLIENT_ORIGINS: ${CLIENT_ORIGINS:-http://localhost:5173}
+      # Connection URLs target the compose service hostnames (Requirement 8.5).
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-synapse}
+      REDIS_URL: redis://redis:6379
+      # Signing secret for room-scoped join tokens. The default below is an
+      # INSECURE local placeholder that only satisfies the 32-char minimum —
+      # always supply a real secret (e.g. `openssl rand -base64 48`) elsewhere.
+      JWT_SECRET: ${JWT_SECRET:-local-development-insecure-secret-change-me}
+      OPEN_MODE: ${OPEN_MODE:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "${SERVER_PORT:-3001}:3001"
+    # Start the server only after BOTH datastores report healthy so it never
+    # boots against an unreachable backend (Requirement 8.6).
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:

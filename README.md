@@ -1,365 +1,177 @@
-# Synapse — Real-time Collaborative Whiteboard
+# Synapse — a real-time collaborative whiteboard
 
-<div align="center">
+Open a board, share the link, and draw together. Synapse is an infinite canvas you can sketch on with other people in real time — their strokes and cursors show up as they happen, and the board is still there when you come back.
 
-![Synapse](https://img.shields.io/badge/Synapse-Collaborative%20Whiteboard-7c3aed?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0yMCAySDRjLTEuMSAwLTIgLjktMiAydjE2YzAgMS4xLjkgMiAyIDJoMTZjMS4xIDAgMi0uOSAyLTJWNGMwLTEuMS0uOS0yLTItMnptLTkgMTRINXYtMmg2djJ6bTQtNEg1di0yaDEwdjJ6bTAtNEg1VjZoMTB2MnoiLz48L3N2Zz4=)
-[![React](https://img.shields.io/badge/React-18-61dafb?style=flat-square&logo=react)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Vite](https://img.shields.io/badge/Vite-7-646cff?style=flat-square&logo=vite)](https://vitejs.dev/)
-[![Socket.io](https://img.shields.io/badge/Socket.io-4-010101?style=flat-square&logo=socket.io)](https://socket.io/)
-[![Express](https://img.shields.io/badge/Express-4-000000?style=flat-square&logo=express)](https://expressjs.com/)
+It started life as a weekend prototype and has since grown into a properly production-shaped app: durable history in PostgreSQL, horizontal scaling through Redis, authenticated rooms, rate limiting, health checks, metrics, and a test suite that actually means something.
 
-**Draw together, in real time — anywhere.**
-
-</div>
+[![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white)](.github/workflows/ci.yml)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React%2019-61dafb?logo=react&logoColor=black)](https://react.dev/)
+[![Socket.IO](https://img.shields.io/badge/Socket.IO-010101?logo=socketdotio&logoColor=white)](https://socket.io/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
 ---
 
-## Table of Contents
+## What it does
 
-- [Overview](#overview)
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-- [Architecture](#architecture)
-- [Canvas Engine](#canvas-engine)
-- [Real-time Protocol](#real-time-protocol)
-- [Environment Variables](#environment-variables)
-- [Scripts Reference](#scripts-reference)
-- [Known Limitations](#known-limitations)
-- [License](#license)
+- **Draw together, live.** Freehand strokes broadcast to everyone in the room over WebSockets.
+- **See each other.** Live cursors with names and a distinct color per person.
+- **Infinite canvas.** Pan and zoom (0.05×–20×) across an unbounded space.
+- **Pick up where you left off.** Strokes are persisted, so history survives a refresh — or a server restart.
+- **Rooms by link.** Every board is its own room behind a short URL. Rooms can be password-protected.
+- **Export your work.** Save the board as PNG or PDF.
+- **Built to be used by anyone.** Keyboard-navigable, screen-reader friendly, responsive down to mobile, and it respects `prefers-reduced-motion`.
 
----
+## How it's built
 
-## Overview
-
-**Synapse** is a full-stack real-time collaborative whiteboard application. Multiple users can join the same board room, draw with freehand strokes, see each other's live cursors, and pan/zoom an infinite canvas — all with zero sign-up required.
-
-Built with a Solo Leveling-inspired dark aesthetic: deep navy/black background, violet and indigo neon glows, animated particles, and a clean hunter-system UI.
-
----
-
-## Features
-
-| Feature | Description |
-|---|---|
-| **Real-time drawing** | Freehand strokes broadcast to all room members via WebSocket |
-| **Live cursors** | Every user's cursor position is streamed to others with their name tag and unique color |
-| **Infinite canvas** | Pan with `Alt + drag` or right-click drag; zoom with scroll wheel (0.05× – 20×) |
-| **Room-based** | Each board is its own isolated room identified by a short URL ID |
-| **Stroke history** | The server stores all strokes in memory; late-joining users receive the full history |
-| **User presence** | Live sidebar shows all connected users with their cursor colors |
-| **Clear board** | Clear the entire board and broadcast the clear event to all room members |
-| **Persistent username** | Username is saved to `localStorage` so you don't have to re-enter it |
-| **Recent boards** | The last 5 visited boards are saved locally for quick re-entry |
-| **Color & brush** | Pick any stroke color and adjust brush width from the toolbar |
-
----
-
-## Tech Stack
-
-### Frontend (`client/`)
-
-| Technology | Version | Role |
-|---|---|---|
-| **React** | 18 | UI framework (with StrictMode) |
-| **TypeScript** | 5 | Type safety across all components and hooks |
-| **Vite** | 7 | Dev server and build tool |
-| **Tailwind CSS** | v4 | Utility-first styling (`@tailwindcss/vite` plugin) |
-| **React Router DOM** | v6 | Client-side routing (`/` and `/board/:id`) |
-| **Socket.io Client** | 4 | WebSocket connection to the server |
-| **Lucide React** | latest | Icon library |
-| **nanoid** | latest | Short unique ID generation for board rooms |
-
-### Backend (`server/`)
-
-| Technology | Version | Role |
-|---|---|---|
-| **Node.js** | 18+ | Runtime |
-| **Express** | 4 | HTTP server |
-| **Socket.io** | 4 | WebSocket server for real-time events |
-| **TypeScript** | 5 | Typed server code |
-| **ts-node** | latest | Run TypeScript directly without a build step |
-| **cors** | latest | Cross-origin requests from the Vite dev server |
-
----
-
-## Project Structure
+Synapse is a TypeScript monorepo with two apps:
 
 ```
-Real-time-Shared-Whiteboard/
-├── client/                          # Vite + React frontend
-│   ├── public/
-│   ├── src/
-│   │   ├── hooks/
-│   │   │   ├── useDraw.ts           # Canvas engine: sizing, DPR, pan/zoom, drawing
-│   │   │   └── useSocket.ts         # Socket.io client: emit + receive events
-│   │   ├── pages/
-│   │   │   ├── Home.tsx             # Landing page with particle animation
-│   │   │   └── Board.tsx            # Main whiteboard page + UI overlays
-│   │   ├── App.tsx                  # Router: / → Home, /board/:id → Board
-│   │   ├── main.tsx                 # React entry point (StrictMode)
-│   │   └── index.css                # Tailwind base import
-│   ├── index.html
-│   ├── vite.config.ts
-│   ├── tsconfig.json
-│   └── package.json
-│
-├── server/
-│   ├── index.ts                     # Express + Socket.io server
-│   ├── tsconfig.json
-│   └── package.json
-│
-├── README.md
-└── LICENSE
+.
+├── client/      # React 19 + Vite + Tailwind v4 single-page app
+├── server/      # Node + Express 5 + Socket.IO 4 real-time server
+├── docker-compose.yml
+└── .github/workflows/ci.yml
 ```
 
----
+### The big picture
 
-## Getting Started
+```
+   Browser ──┐                         ┌── PostgreSQL  (durable stroke history)
+   Browser ──┤  WebSocket / HTTPS      │
+   Browser ──┼────────────▶  Synapse server(s)  ──────┤
+   Browser ──┘                         │
+                                       └── Redis  (cross-instance fan-out + presence)
+```
 
-### Prerequisites
+Any server instance can serve any room. Room broadcasts fan out through a Redis adapter, so you can run several instances behind a load balancer and it just works. Drawing is broadcast immediately for low latency, while a write-behind buffer batches strokes to PostgreSQL in the background — durability without the per-stroke round trip.
 
-- **Node.js** v18 or higher
-- **npm** v9 or higher
+### Server layout
 
-### 1. Clone the repository
+The server is organized in clear layers so each piece has one job:
+
+```
+server/src/
+├── index.ts          # composition root — wires everything together, owns startup/shutdown
+├── app.ts            # Express app: CORS, health/readiness, join-token & metrics routes
+├── socket/           # gateway, per-connection context, Redis adapter wiring
+├── handlers/         # one file per socket event (join, draw, cursor, clear, resync, …)
+├── services/         # Stroke_Service (ordering + buffering + compaction), Presence_Service
+├── repositories/     # PostgreSQL data access (boards, strokes)
+├── middleware/        # auth guard, token-bucket rate limiter
+├── validation/       # zod schemas for every inbound payload
+├── persistence/      # pg pool, Redis clients
+├── observability/    # structured logging (pino), Prometheus metrics, health checks
+└── config/           # validated environment loader
+```
+
+## Getting started
+
+You'll need **Node.js 20+**. For the full experience (persistence + scaling) you'll also want **PostgreSQL** and **Redis** — the quickest way to get both is Docker.
+
+### Option A — run everything with Docker
 
 ```bash
-git clone <repo-url>
-cd Real-time-Shared-Whiteboard
+cp server/.env.example server/.env   # adjust values if you like
+docker compose up --build
 ```
 
-### 2. Install dependencies
+This starts PostgreSQL, Redis, and the server together. The server waits until both datastores are healthy before accepting connections.
 
-Install both server and client dependencies:
+### Option B — run the pieces yourself
+
+**1. Start Postgres and Redis** (or point the env vars at your own).
+
+**2. Server**
+
+```bash
+cd server
+npm install
+cp .env.example .env          # then fill in DATABASE_URL, REDIS_URL, JWT_SECRET, CLIENT_ORIGINS
+npm run migrate               # create the database schema
+npm run dev                   # http://localhost:3001
+```
+
+**3. Client** (in a second terminal)
+
+```bash
+cd client
+npm install
+npm run dev                   # http://localhost:5173
+```
+
+Open http://localhost:5173, enter a name, create a board, and share the URL. To see collaboration in action, open the same board in a second tab.
+
+> **Tip:** for a quick demo without setting up auth, set `OPEN_MODE=true` in `server/.env` to skip join-token verification.
+
+## Configuration
+
+Everything is configured through environment variables, and the server validates them at startup — if something's missing or malformed, it tells you exactly what and exits instead of failing later. See [`server/.env.example`](./server/.env.example) for the full annotated list. The essentials:
+
+| Variable | Required | What it's for |
+|---|---|---|
+| `CLIENT_ORIGINS` | yes | Comma-separated allowlist of client origins (CORS + socket handshake) |
+| `DATABASE_URL` | yes | PostgreSQL connection string |
+| `REDIS_URL` | yes | Redis connection string |
+| `JWT_SECRET` | yes | Signing secret for room join tokens (≥32 chars) |
+| `PORT` | no | Server port (default `3001`) |
+| `NODE_ENV` | no | `production` enforces HTTPS/WSS-only connections |
+| `OPEN_MODE` | no | `true` bypasses join-token auth — demos/local only |
+
+On the client, set `VITE_SERVER_URL` at build time to point at your server (defaults to `http://localhost:3001`).
+
+## How collaboration stays consistent
+
+A few design decisions are worth calling out, because they're what make the real-time experience hold together:
+
+- **Every stroke gets a sequence number.** The server assigns a gap-free, monotonically increasing `seq` per board. Clients apply strokes strictly in order.
+- **Gaps trigger a resync.** If a client notices a missing `seq` (say, after a flaky connection), it asks the server to replay exactly what it missed — no duplicates, no holes.
+- **History is compacted, not unbounded.** Once a board exceeds its stroke cap, older strokes fold into a snapshot baseline so memory and storage stay bounded without changing what a new joiner sees.
+- **Presence is distributed.** Connected users and their cursor colors live in Redis, so presence is consistent across instances and stale entries expire on their own.
+
+These behaviors aren't just hoped-for — they're pinned down by property-based tests (see below).
+
+## Testing
+
+The server and client both use [Vitest](https://vitest.dev/), with [fast-check](https://fast-check.dev/) for property-based tests that check correctness invariants across hundreds of generated inputs.
 
 ```bash
 # Server
 cd server
-npm install
+npm run test:unit          # validation, rate limiting, sequencing, presence, …
+npm run test:property      # correctness properties (≥100 cases each)
+npm run test:integration   # real socket flows against ephemeral datastores
 
 # Client
-cd ../client
-npm install
-```
-
-### 3. Start the server
-
-```bash
-cd server
-npm run dev
-# Server starts on http://localhost:3001
-```
-
-### 4. Start the client
-
-Open a **new terminal**:
-
-```bash
 cd client
-npm run dev
-# Client starts on http://localhost:5173
-# (or 5174 if 5173 is occupied)
+npm run test:unit
+npm run test:property
 ```
 
-### 5. Open in browser
+Property tests cover things like *sequence numbers are always gap-free*, *compaction never changes what you see*, *a resync always converges*, *cursor colors stay unique across instances*, and *coordinate transforms round-trip cleanly*.
 
-Navigate to **http://localhost:5173**, enter a name, and click **Create New Board**.
+CI runs all of this — type-checking, linting, and every suite (with Postgres and Redis service containers) — on each pull request, and gates merges on the results. See [`.github/workflows/ci.yml`](./.github/workflows/ci.yml).
 
-To test multi-user collaboration, open the same board URL in a second browser tab or window.
+## Operating it
 
----
+- `GET /healthz` — liveness; answers instantly regardless of datastore state.
+- `GET /readyz` — readiness; reports `not_ready` (and names the culprit) when Postgres or Redis is unreachable, or when persistence writes are backing up.
+- `GET /metrics` — Prometheus metrics (active connections, rooms, strokes/sec, errors), restricted to internal callers.
+- Logs are structured JSON (pino) with connection/room correlation ids.
+- The server shuts down gracefully on `SIGTERM`/`SIGINT`: it stops accepting connections, flushes buffered strokes, and releases datastore connections within a bounded window.
 
-## Architecture
+## Tech stack
 
-```
-┌──────────────────────────────────────────────────────┐
-│                     Browser (Tab 1)                  │
-│                                                      │
-│  ┌────────────┐    ┌──────────────┐                  │
-│  │  Home.tsx  │    │  Board.tsx   │                  │
-│  │  Landing   │───▶│  Whiteboard  │                  │
-│  └────────────┘    └──────┬───────┘                  │
-│                           │                          │
-│              ┌────────────┴──────────────┐           │
-│              │                           │           │
-│         useDraw.ts                 useSocket.ts       │
-│         Canvas engine              Socket.io client  │
-│         - Sizing / DPR             - Emit strokes    │
-│         - Pan / Zoom               - Emit cursors    │
-│         - Draw strokes             - Recv remote     │
-│         - Render loop              - User list       │
-└──────────────────────────────────────────────────────┘
-                           │ WebSocket
-                           ▼
-┌──────────────────────────────────────────────────────┐
-│                   server/index.ts                    │
-│                                                      │
-│  Express HTTP server (port 3001)                     │
-│  Socket.io server                                    │
-│                                                      │
-│  In-memory store:                                    │
-│  rooms: Map<roomId, {                                │
-│    strokes: Stroke[],                                │
-│    users:   Map<socketId, User>,                     │
-│    timeout: NodeJS.Timeout                           │
-│  }>                                                  │
-│                                                      │
-│  Events handled:                                     │
-│  join-room → send history, broadcast user list       │
-│  draw       → store stroke, broadcast to room        │
-│  cursor     → volatile broadcast (no store)          │
-│  clear      → clear strokes, broadcast               │
-│  disconnect → remove user, cleanup empty room        │
-└──────────────────────────────────────────────────────┘
-```
+**Client:** React 19, TypeScript, Vite, Tailwind CSS v4, React Router, Socket.IO client, Lucide icons, jsPDF.
 
----
+**Server:** Node, Express 5, Socket.IO 4, TypeScript, PostgreSQL (`pg` + `node-pg-migrate`), Redis (`ioredis` + `@socket.io/redis-adapter`), zod, jsonwebtoken, bcryptjs, pino, prom-client.
 
-## Canvas Engine
+**Tooling:** Vitest, fast-check, supertest, Docker, GitHub Actions.
 
-The canvas system is implemented entirely in `client/src/hooks/useDraw.ts`.
+## A note on the name
 
-### Coordinate System
-
-All strokes are stored in **world space** (infinite coordinate space). The canvas applies a transform to convert between world space and screen space:
-
-```
-screen_x = (world_x + pan.x) * zoom
-screen_y = (world_y + pan.y) * zoom
-```
-
-### DPR (Device Pixel Ratio) Handling
-
-The canvas physical size is `cssWidth * devicePixelRatio` by `cssHeight * devicePixelRatio`. Every frame starts with:
-
-```ts
-ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-```
-
-This prevents blurry strokes on high-DPI (Retina) displays.
-
-### Pan & Zoom
-
-| Interaction | Action |
-|---|---|
-| `Alt + Left-click drag` | Pan the canvas |
-| `Right-click drag` | Pan the canvas |
-| `Scroll wheel` | Zoom in/out (clamped to 0.05× – 20×) |
-| `Left-click drag` | Draw stroke |
-
-Zoom is applied around the cursor position to maintain the point under the cursor.
-
-### Render Pipeline
-
-Each frame (triggered by state changes or RAF):
-
-1. `ctx.setTransform(dpr, 0, 0, dpr, 0, 0)` — reset to CSS-pixel space
-2. `ctx.fillRect(...)` — fill background `#09090f`
-3. `ctx.save()` + `ctx.translate(pan.x * zoom, pan.y * zoom)` + `ctx.scale(zoom, zoom)` — enter world space
-4. Draw dot grid (world-space aligned, density controlled)
-5. Draw all strokes (past + current)
-6. `ctx.restore()` — leave world space
-
----
-
-## Real-time Protocol
-
-Communication uses **Socket.io** events over WebSocket with automatic HTTP long-polling fallback.
-
-### Client → Server Events
-
-| Event | Payload | Description |
-|---|---|---|
-| `join-room` | `{ roomId, username }` | Join a board room |
-| `draw` | `{ roomId, stroke: Stroke }` | Broadcast a completed stroke |
-| `cursor` | `{ roomId, x, y, username }` | Broadcast cursor position (volatile) |
-| `clear` | `{ roomId }` | Clear all strokes in the room |
-
-### Server → Client Events
-
-| Event | Payload | Description |
-|---|---|---|
-| `history` | `Stroke[]` | Full stroke history on join |
-| `draw` | `Stroke` | A remote user's new stroke |
-| `cursor` | `{ socketId, x, y, username, color }` | Remote cursor position |
-| `user-left` | `socketId` | A user disconnected |
-| `users` | `User[]` | Updated user list for the room |
-| `clear` | — | Clears the canvas |
-
-### Stroke Schema
-
-```ts
-interface Stroke {
-  points: { x: number; y: number }[];  // World-space coordinates
-  color: string;                        // CSS color string
-  width: number;                        // Brush width in world units
-}
-```
-
-### Cursor Color Assignment
-
-The server maintains a pool of 20 distinct colors. Each user joining a room is assigned a unique color from the pool (cycling if the pool is exhausted).
-
----
-
-## Environment Variables
-
-The project uses hardcoded defaults for development. For production, configure:
-
-| Variable | Default | Description |
-|---|---|---|
-| `PORT` | `3001` | Server port |
-| `VITE_SERVER_URL` | `http://localhost:3001` | WebSocket server URL (client-side) |
-
-In `client/src/hooks/useSocket.ts`, the server URL is:
-
-```ts
-const SERVER_URL = import.meta.env.VITE_SERVER_URL ?? "http://localhost:3001";
-```
-
-Create a `client/.env` file for production:
-
-```env
-VITE_SERVER_URL=https://your-server-domain.com
-```
-
----
-
-## Scripts Reference
-
-### Server (`server/`)
-
-| Script | Command | Description |
-|---|---|---|
-| `dev` | `npx ts-node index.ts` | Start dev server with ts-node |
-| `build` | `npx tsc` | Compile TypeScript to `dist/` |
-| `start` | `node dist/index.js` | Run compiled production server |
-
-### Client (`client/`)
-
-| Script | Command | Description |
-|---|---|---|
-| `dev` | `vite` | Start Vite dev server with HMR |
-| `build` | `tsc && vite build` | Type-check then bundle for production |
-| `preview` | `vite preview` | Preview the production build locally |
-| `typecheck` | `tsc --noEmit` | Type-check without emitting files |
-
----
-
-## Known Limitations
-
-- **In-memory storage only** — all strokes are lost when the server restarts. A future version could persist rooms to Redis or a database.
-- **No authentication** — any user can join any board by knowing the room ID. Consider adding password-protected rooms for sensitive use cases.
-- **Room cleanup** — empty rooms are deleted after 1 hour. Active rooms are never pruned.
-- **No undo/redo** — stroke history is append-only. Undo would require a per-user command stack.
-- **No text or shapes** — currently supports freehand drawing only. Text, rectangles, and ellipses could be added as additional stroke types.
-- **No export** — canvas content cannot currently be exported to PNG or PDF.
-
----
+"Synapse" is just the product name — the app is a general-purpose collaborative whiteboard. Use it for brainstorming, teaching, diagramming, or doodling with friends.
 
 ## License
 
-[MIT](./LICENSE) © 2026
+[MIT](./LICENSE) — do what you like, no warranty.

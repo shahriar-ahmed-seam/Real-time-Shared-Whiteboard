@@ -1,0 +1,215 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Synapse — Continuous Integration (Requirements 9.4, 9.5, 9.6)
+# ─────────────────────────────────────────────────────────────────────────────
+# On every pull request (and pushes to main) this pipeline runs the full set of
+# quality gates the design's Testing Strategy requires:
+#
+#   • type checking  — `tsc` for both the server and client packages
+#   • linting        — ESLint (client; server runs lint only if configured)
+#   • unit tests     — server + client
+#   • property tests — server + client (fast-check, ≥100 cases each)
+#   • integration    — server socket/HTTP flows against real Postgres + Redis
+#                      service containers, with migrations applied first
+#
+# Merge gating (Requirements 9.5 / 9.6): the `ci` job at the bottom depends on
+# every gate and FAILS if any of them failed, was cancelled, or was skipped
+# (i.e. "did not complete"). Mark `ci` (and/or the individual jobs) as a
+# required status check on the protected branch so GitHub blocks merge unless
+# all gates pass, and permits merge once they all do.
+#
+# All third-party actions, the Node.js toolchain, and the datastore images are
+# pinned to specific versions for reproducible, deterministic runs. Dependencies
+# are installed with `npm ci` from the committed lockfiles.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same ref so a freshly pushed commit re-gates the
+# PR (Requirement 9.4 runs on every new commit) without wasting runners.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least-privilege: CI only needs to read the repository contents.
+permissions:
+  contents: read
+
+env:
+  # Pinned Node.js toolchain version used by every job.
+  NODE_VERSION: "20.18.1"
+
+jobs:
+  # ── Server: type check + lint + unit + property ─────────────────────────────
+  # These suites are pure (validation, rate-limiter math, seq assignment, color
+  # allocation, fast-check properties) and need no external datastores.
+  server-quality:
+    name: Server type-check, lint, unit & property tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+
+      - name: Install dependencies (npm ci)
+        run: npm ci
+
+      - name: Type check (tsc --noEmit)
+        run: npx tsc --noEmit
+
+      - name: Lint (if configured)
+        run: npm run lint --if-present
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Property-based tests
+        run: npm run test:property
+
+  # ── Server: integration tests against real Postgres + Redis ─────────────────
+  # Socket.IO + datastore flows (join→history, draw broadcast, clear, resync,
+  # rate limiting) run against ephemeral service containers. Migrations are
+  # applied before the suite so the schema matches production.
+  server-integration:
+    name: Server integration tests (Postgres + Redis)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+
+    services:
+      postgres:
+        image: postgres:16.4-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: synapse_test
+        ports:
+          - 5432:5432
+        # Hold the job until Postgres is actually accepting connections.
+        options: >-
+          --health-cmd "pg_isready -U postgres -d synapse_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        # Hold the job until Redis is serving.
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/synapse_test
+      REDIS_URL: redis://localhost:6379
+      # Test-only signing secret (≥32 chars to satisfy the Config_Loader).
+      JWT_SECRET: ci-test-jwt-secret-at-least-32-characters-long
+      CLIENT_ORIGINS: http://localhost:5173
+      OPEN_MODE: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+
+      - name: Install dependencies (npm ci)
+        run: npm ci
+
+      - name: Run database migrations
+        run: npm run migrate
+
+      - name: Integration tests
+        run: npm run test:integration
+
+  # ── Client: type check + lint + unit + property + build ─────────────────────
+  client-quality:
+    name: Client type-check, lint, unit & property tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+
+      - name: Install dependencies (npm ci)
+        run: npm ci
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Property-based tests
+        run: npm run test:property
+
+      # `npm run build` is `tsc -b && vite build`: it type-checks the project
+      # references AND verifies the self-contained production static build.
+      - name: Type check & production build
+        run: npm run build
+
+  # ── Merge gate (Requirements 9.5, 9.6) ──────────────────────────────────────
+  # Aggregates every gate into one required check. `if: always()` ensures this
+  # job runs even when a dependency fails, and it FAILS the run if any needed
+  # job did not succeed (failure, cancellation, or skip = "did not complete"),
+  # blocking merge. When every gate succeeds, this passes and merge is permitted.
+  ci:
+    name: CI gate
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - server-quality
+      - server-integration
+      - client-quality
+    steps:
+      - name: Verify all gates passed
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
+        run: |
+          echo "One or more CI gates failed or did not complete:"
+          echo "  server-quality      = ${{ needs.server-quality.result }}"
+          echo "  server-integration  = ${{ needs.server-integration.result }}"
+          echo "  client-quality      = ${{ needs.client-quality.result }}"
+          exit 1
+
+      - name: All gates passed
+        run: echo "All CI gates passed — merge permitted."

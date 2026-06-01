@@ -1,27 +1,54 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "dev": "nodemon index.ts",
+    "dev": "nodemon src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run --project unit",
+    "test:property": "vitest run --project property",
+    "test:integration": "vitest run --project integration",
+    "migrate": "node-pg-migrate up -d DATABASE_URL -m migrations",
+    "migrate:up": "node-pg-migrate up -d DATABASE_URL -m migrations",
+    "migrate:down": "node-pg-migrate down -d DATABASE_URL -m migrations",
+    "migrate:create": "node-pg-migrate create -m migrations"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@socket.io/redis-adapter": "^8.3.0",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "socket.io": "^4.8.3"
+    "ioredis": "^5.11.0",
+    "jsonwebtoken": "^9.0.3",
+    "node-pg-migrate": "^8.0.4",
+    "pg": "^8.21.0",
+    "pino": "^10.3.1",
+    "prom-client": "^15.1.3",
+    "socket.io": "^4.8.3",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.2.3",
+    "@types/pg": "^8.20.0",
+    "@types/supertest": "^6.0.3",
+    "fast-check": "^3.23.2",
+    "ioredis-mock": "^8.13.1",
     "nodemon": "^3.1.11",
+    "socket.io-client": "^4.8.3",
+    "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
   }
 }

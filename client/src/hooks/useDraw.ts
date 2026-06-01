@@ -1,4 +1,11 @@
 import { useRef, useCallback, useEffect, useState } from "react";
+import {
+  screenToWorld,
+  zoomAround,
+  MIN_SCALE,
+  MAX_SCALE,
+  type Transform,
+} from "../lib/coordinates";
 
 export interface DrawStroke {
   x0: number;
@@ -12,12 +19,11 @@ export interface DrawStroke {
 // ─── FULL REWRITE ────────────────────────────────────────────────────
 // Removed world-coordinate abstraction that was corrupting the 2D context
 // transform stack. Now uses a single clean setTransform(dpr) per frame.
+//
+// Coordinate-transform math (screen↔world, zoom-around-cursor) lives in the
+// pure, testable module at ../lib/coordinates.
 
-export interface Transform {
-  x: number;
-  y: number;
-  scale: number;
-}
+export type { Transform };
 
 interface UseDrawOptions {
   onDraw: (stroke: DrawStroke) => void;
@@ -53,10 +59,8 @@ export function useDraw({ onDraw, onCursorMove }: UseDrawOptions) {
   }, []);
 
   // ─── Screen → World conversion ───────────────────────────────────
-  const toWorld = (sx: number, sy: number) => {
-    const t = panRef.current;
-    return { x: (sx - t.x) / t.scale, y: (sy - t.y) / t.scale };
-  };
+  const toWorld = (sx: number, sy: number) =>
+    screenToWorld({ x: sx, y: sy }, panRef.current);
 
   // ─── Get pointer position relative to canvas ────────────────────
   const getPos = (e: MouseEvent | TouchEvent) => {
@@ -246,17 +250,13 @@ export function useDraw({ onDraw, onCursorMove }: UseDrawOptions) {
       const my = e.clientY - r.top;
 
       const factor = e.deltaY < 0 ? 1.1 : 0.9;
-      const t = panRef.current;
-      const newScale = Math.min(Math.max(t.scale * factor, 0.05), 20);
-
-      const wx = (mx - t.x) / t.scale;
-      const wy = (my - t.y) / t.scale;
-
-      panRef.current = {
-        x: mx - wx * newScale,
-        y: my - wy * newScale,
-        scale: newScale,
-      };
+      panRef.current = zoomAround(
+        panRef.current,
+        { x: mx, y: my },
+        factor,
+        MIN_SCALE,
+        MAX_SCALE,
+      );
       setTransformState({ ...panRef.current });
       redraw();
     };

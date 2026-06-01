@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "rootDir": ".",
+    "rootDir": "./src",
     "outDir": "./dist",
     "module": "commonjs",
     "target": "es2020",
@@ -14,6 +14,6 @@
     "forceConsistentCasingInFileNames": true,
     "moduleDetection": "force"
   },
-  "include": ["./**/*.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

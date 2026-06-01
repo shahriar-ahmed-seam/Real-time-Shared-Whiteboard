@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Environment / secrets — never commit real values (keep .env.example)
+.env
+.env.*
+!.env.example
+
+# Test / coverage artifacts
+coverage/
+.nyc_output/
+
+# Editor / OS cruft
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.sw?
+
+# Local tooling caches
+.npm/
+.vite/

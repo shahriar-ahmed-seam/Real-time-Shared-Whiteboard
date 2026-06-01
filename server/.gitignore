@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Compiled output
+dist/
+
+# Environment / secrets (keep .env.example)
+.env
+.env.*
+!.env.example
+
+# Logs & caches
+*.log
+.npm/
+coverage/
