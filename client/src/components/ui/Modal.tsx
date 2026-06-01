@@ -88,8 +88,8 @@ export function Modal({
 
   return createPortal(
     <div
-      // Token-backed translucent scrim: --color-bg at 70% opacity.
-      className="fixed inset-0 z-50 flex items-center justify-center bg-bg/70 p-4"
+      // Material 3 scrim over content; click-outside closes when allowed.
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[color-mix(in_srgb,#000_32%,transparent)] p-4 backdrop-blur-[2px]"
       onMouseDown={(e) => {
         if (closeOnBackdrop && e.target === e.currentTarget) onClose();
       }}
@@ -103,14 +103,15 @@ export function Modal({
         onKeyDown={handleKeyDown}
         className={cn(
           "w-full max-w-md outline-none",
-          "rounded-lg border border-border bg-surface-1 text-text",
-          "shadow-[var(--shadow-md)]",
+          "rounded-[var(--radius-xl)] border border-border bg-surface-3 text-text",
+          "shadow-[var(--shadow-3)]",
           "p-6",
+          "motion-safe:animate-[modal-in_var(--motion-base)_var(--ease-emphasized)]",
         )}
       >
         <h2
           id={titleId}
-          className="font-sans text-xl font-bold text-text-strong"
+          className="font-sans text-xl font-semibold text-text-strong"
         >
           {title}
         </h2>

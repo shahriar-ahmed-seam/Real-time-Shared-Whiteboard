@@ -1,0 +1,241 @@
+@import "tailwindcss";
+
+/* Drive the Tailwind `dark:` variant from a `.dark` class on <html> (set by the
+   ThemeProvider) instead of the OS media query, so a manual toggle works. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* =============================================================================
+   Design tokens — Material 3 / Google Workspace surface system
+   -----------------------------------------------------------------------------
+   A single source of truth, consumed everywhere via token-backed Tailwind
+   utilities (e.g. `bg-surface-1`, `text-text`, `rounded-md`) or `var(--token)`.
+   No raw hex literals belong in components.
+
+   Theme model: the `@theme` block below holds the LIGHT palette (the default,
+   matching Google Workspace surfaces) plus the theme-independent scales
+   (type, spacing, radius, motion). The `html.dark` block further down overrides
+   only the color/elevation custom properties for the dark theme, so every
+   utility flips automatically when the `.dark` class is present.
+
+   Contrast (WCAG AA): text/surface pairs are chosen for >=4.5:1 body and >=3:1
+   large-text / control-boundary in BOTH themes. Light (on #FFFFFF surface):
+     text-strong #1F1F1F -> ~16:1  (AAA)
+     text        #3C4043 -> ~10.4:1 (AAA)
+     text-muted  #5F6368 -> ~7.0:1  (AA/AAA)
+     primary     #0B57D0 -> ~5.9:1  (AA text + control boundary)
+   Dark (on #1E2025 surface): text-strong #E8EAED ~13:1, text #C4C7C5 ~9:1,
+     text-muted #9AA0A6 ~5.9:1, primary #A8C7FA ~8:1. Full AA conformance still
+     requires manual verification with assistive technology.
+   ========================================================================== */
+@theme {
+  /* ── Color — surfaces (LIGHT defaults; Material 3 tonal elevation) ── */
+  --color-bg: #f8f9fb;              /* app backdrop (Home, behind chrome)      */
+  --color-surface-1: #ffffff;       /* primary floating surface (toolbars)     */
+  --color-surface-2: #f1f3f4;       /* container / hover fill                  */
+  --color-surface-3: #e8eaed;       /* high container (raised popovers)        */
+  --color-border: #e3e5e9;          /* hairline outline                        */
+  --color-outline: #c4c7c5;         /* stronger outline (inputs, dividers)     */
+
+  /* ── Color — primary (Google blue) ── */
+  --color-primary: #0b57d0;
+  --color-primary-hover: #0842a0;
+  --color-accent: #1a73e8;
+
+  /* ── Color — text (on light surfaces) ── */
+  --color-text-strong: #1f1f1f;     /* headings / on-surface (AAA)             */
+  --color-text: #3c4043;            /* body                                    */
+  --color-text-muted: #5f6368;      /* secondary / on-surface-variant          */
+  --color-text-on-primary: #ffffff; /* text/icon on the primary fill           */
+
+  /* ── Color — semantic ── */
+  --color-danger: #c5221f;
+  --color-success: #188038;
+  --color-focus: #0b57d0;           /* focus ring (>=3:1)                       */
+
+  /* ── Typography ── */
+  --font-sans: "Inter", "Google Sans", "Roboto", system-ui, -apple-system, sans-serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+  --text-3xl: 2.75rem;
+
+  /* ── Spacing (4px base) ── */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  /* ── Radius (Material 3 shape scale) ── */
+  --radius-sm: 0.5rem;   /* 8px  */
+  --radius-md: 0.75rem;  /* 12px */
+  --radius-lg: 1rem;     /* 16px */
+  --radius-xl: 1.75rem;  /* 28px — extra-large / pill-ish */
+
+  /* ── Motion (Google standard/emphasized easing) ── */
+  --motion-fast: 150ms;
+  --motion-base: 250ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* =============================================================================
+   Elevation + glass (defined outside @theme so they can flip per theme).
+   Material 3 elevation is low-spread and soft. `--shadow-md` is kept for the
+   primitives that already reference `shadow-[var(--shadow-md)]`.
+   ========================================================================== */
+:root {
+  color-scheme: light;
+
+  --shadow-1: 0 1px 2px rgba(60, 64, 67, 0.10), 0 1px 3px rgba(60, 64, 67, 0.08);
+  --shadow-2: 0 1px 3px rgba(60, 64, 67, 0.12), 0 4px 8px rgba(60, 64, 67, 0.10);
+  --shadow-3: 0 2px 6px rgba(60, 64, 67, 0.12), 0 8px 24px rgba(60, 64, 67, 0.16);
+  /* Back-compat aliases used by existing primitives. */
+  --shadow-md: var(--shadow-2);
+  --shadow-glow: var(--shadow-2);
+
+  /* Translucent fill for glassmorphism floating surfaces. Late-bound: the inner
+     var() resolves against the cascaded surface value, so it adapts to theme. */
+  --glass-1: color-mix(in srgb, var(--color-surface-1) 76%, transparent);
+}
+
+html.dark {
+  color-scheme: dark;
+
+  /* Surfaces — Material 3 dark tonal elevation. */
+  --color-bg: #0e1116;
+  --color-surface-1: #1e2025;
+  --color-surface-2: #282a2f;
+  --color-surface-3: #303237;
+  --color-border: rgba(255, 255, 255, 0.12);
+  --color-outline: rgba(255, 255, 255, 0.20);
+
+  /* Primary flips to the M3 dark tonal pair (light-blue fill, dark-navy text). */
+  --color-primary: #a8c7fa;
+  --color-primary-hover: #c2d7fb;
+  --color-accent: #8ab4f8;
+
+  --color-text-strong: #e8eaed;
+  --color-text: #c4c7c5;
+  --color-text-muted: #9aa0a6;
+  --color-text-on-primary: #062e6f;
+
+  --color-danger: #f2b8b5;
+  --color-success: #6dd58c;
+  --color-focus: #a8c7fa;
+
+  /* Deeper shadows read against the dark backdrop. */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.40), 0 1px 3px rgba(0, 0, 0, 0.32);
+  --shadow-2: 0 1px 3px rgba(0, 0, 0, 0.48), 0 4px 12px rgba(0, 0, 0, 0.40);
+  --shadow-3: 0 2px 8px rgba(0, 0, 0, 0.52), 0 12px 32px rgba(0, 0, 0, 0.52);
+  --shadow-md: var(--shadow-2);
+  --shadow-glow: var(--shadow-2);
+
+  --glass-1: color-mix(in srgb, var(--color-surface-1) 72%, transparent);
+}
+
+/* =============================================================================
+   Base / reset
+   ========================================================================== */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Visible focus indicator on every keyboard-focused control (>=3:1). */
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* =============================================================================
+   Glassmorphism surface — the floating-chrome material (toolbars, header,
+   side-sheet). Translucent token fill + backdrop blur + saturation, paired in
+   components with `border border-border` and a `--shadow-*` elevation.
+   ========================================================================== */
+.glass {
+  background-color: var(--glass-1);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Shared entrance keyframes (Material 3 emphasized motion). Gated by
+   `motion-safe:` at the call sites and by the reduced-motion block below. */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes sheet-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Subtle dot field for the Home backdrop — calm, not decorative noise. */
+.paper-grid {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--color-text-muted) 22%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+}
+
+/* =============================================================================
+   Reduced motion (a11y): neutralize non-essential animation/transition. The
+   Home decorative layer is a JS-free static surface now, so nothing else needs
+   special-casing here.
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

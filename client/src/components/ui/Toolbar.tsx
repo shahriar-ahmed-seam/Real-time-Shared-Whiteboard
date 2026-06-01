@@ -141,7 +141,7 @@ export function Toolbar({
         aria-label={rest["aria-label"]}
         aria-orientation={orientation}
         className={cn(
-          "inline-flex gap-2 rounded-lg border border-border bg-surface-1 p-2",
+          "inline-flex gap-1 rounded-full border border-border bg-surface-1 p-1.5",
           orientation === "vertical" ? "flex-col" : "flex-row",
           className,
         )}
@@ -214,13 +214,13 @@ export const ToolbarButton = forwardRef<HTMLButtonElement, ToolbarButtonProps>(
         }}
         className={cn(
           "inline-flex items-center justify-center min-h-11 min-w-11 p-2",
-          "rounded-md border font-sans text-base",
+          "rounded-full border font-sans text-base",
           focusRing,
-          "transition-colors duration-[var(--motion-fast)] ease-[var(--ease-standard)] motion-reduce:transition-none",
+          "transition-[background-color,border-color,color] duration-[var(--motion-fast)] ease-[var(--ease-standard)] motion-reduce:transition-none",
           "disabled:opacity-50 disabled:pointer-events-none cursor-pointer",
           active
-            ? "bg-primary border-primary text-text-on-primary"
-            : "bg-transparent border-transparent text-text hover:bg-surface-2 hover:text-text-strong",
+            ? "bg-[color-mix(in_srgb,var(--color-primary)_16%,var(--color-surface-1))] border-transparent text-primary"
+            : "bg-transparent border-transparent text-text-muted hover:bg-[color-mix(in_srgb,var(--color-text-muted)_14%,transparent)] hover:text-text-strong",
           className,
         )}
         {...rest}

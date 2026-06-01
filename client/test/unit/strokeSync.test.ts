@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { decideStrokeAction, highestSeq } from "../../src/lib/strokeSync";
+import {
+  decideStrokeAction,
+  highestSeq,
+} from "../../src/features/collaboration/sync/strokeSync";
 
 /**
  * Unit tests for the client gap-detection ordering helpers.
